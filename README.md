@@ -12,13 +12,7 @@ brew install handbrake
 
 ## Usage
 
-```python
-import foobar
-
-foobar.pluralize('word') # returns 'words'
-foobar.pluralize('goose') # returns 'geese'
-foobar.singularize('phenomena') # returns 'phenomenon'
-```
+...
 
 ## Contributing
 Las solicitudes de extracción son bienvenidas. Para cambios importantes, abra primero un problema para analizar qué le gustaría cambiar.
