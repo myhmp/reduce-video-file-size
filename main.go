@@ -48,7 +48,7 @@ func renameVideo(path string, info os.FileInfo, prefix string) (*models.Video, s
 
 	model.Original.FileName = newFileName
 	model.Original.Path = dst
-	model.Original.Bytes = info.Size()
+	model.Original.Megabytes = (float64(info.Size()) / float64(1024)) / float64(1024)
 
 	model.Reduced.FileName = info.Name()
 	model.Reduced.Path = path
@@ -125,9 +125,9 @@ func main() {
 			if err != nil {
 				fmt.Println(file, err)
 			}
-			video.Reduced.Bytes = bytes
-			video.ReducedBytes = video.Original.Bytes - video.Reduced.Bytes
-			fmt.Println("bytes", video.Reduced.Bytes)
+			video.Reduced.Megabytes = (float64(bytes) / float64(1024)) / float64(1024)
+			video.ReducedMegabytes = video.Original.Megabytes - video.Reduced.Megabytes
+			fmt.Println("bytes", video.Reduced.Megabytes)
 
 			wg.Done()
 			<-semaphore
@@ -142,65 +142,3 @@ func main() {
 
 	_ = ioutil.WriteFile("records.json", file, 0644)
 }
-
-// HandBrakeCLI -i Vi2.mp4 -o ~/Desktop/Vi22.mp4 -e x264 -q 21 --preset="Discord Nitro Small 10-20 Minutes 480p30"
-
-// package main
-
-// import (
-// 	"encoding/json"
-// 	"fmt"
-// 	"io/ioutil"
-// 	"os"
-// 	"path/filepath"
-// 	"reduce-video-file-size/models"
-// 	"strings"
-// )
-
-// func main() {
-// 	video := models.Reduced{}
-// 	videos := []models.Reduced{}
-
-// 	filepath.Walk("./resources", func(path string, info os.FileInfo, err error) error {
-// 		if !info.IsDir() && filepath.Ext(path) == ".mp4" {
-// 			absPath, err := filepath.Abs(path)
-// 			if err != nil {
-// 				return err
-// 			}
-
-// 			// original data of the video
-// 			newFileName := fmt.Sprintf("_%s", info.Name())
-// 			dst := strings.Replace(absPath, info.Name(), newFileName, -1)
-
-// 			video.Original.FileName = newFileName
-// 			video.Original.Path = dst
-// 			video.Original.FileSize = info.Size()
-
-// 			// reduce vídeo file size
-
-// 			videoFile, err := os.Stat(path)
-// 			if err != nil {
-// 				fmt.Println(err)
-// 				return err
-// 			}
-
-// 			video.FileName = info.Name()
-// 			video.Path = path
-// 			video.FileSize = videoFile.Size()
-// 			video.ReducedMegabytes = info.Size() - videoFile.Size()
-
-// 			videos = append(videos, video)
-// 		}
-// 		if err != nil {
-// 			fmt.Println("ERROR:", err)
-// 		}
-// 		return nil
-// 	})
-
-// 	file, _ := json.MarshalIndent(videos, "", " ")
-
-// 	_ = ioutil.WriteFile("test.json", file, 0644)
-
-// }
-
-// // HandBrakeCLI -i Vi2.mp4 -o ~/Desktop/Vi22.mp4 -e x264 -q 21 --preset="Discord Nitro Small 10-20 Minutes 480p30"
