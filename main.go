@@ -25,7 +25,6 @@ func fileSizeInBytes(path string) (int64, error) {
 		return 0, err
 	}
 
-	fmt.Println("fileSizeInBytes", stat.Size())
 	fmt.Println("path", path)
 
 	var bytes int64
@@ -34,13 +33,13 @@ func fileSizeInBytes(path string) (int64, error) {
 	return bytes, nil
 }
 
-func renameVideo(path string, info os.FileInfo, prefix string) (*models.Video, string, error) {
+func renameVideo(path string, info os.FileInfo, prefix string) (*models.Video, error) {
 	model := models.Video{}
 	if info.IsDir() {
-		return &model, "", errors.New("Is a directory")
+		return &model, errors.New("Is a directory")
 	}
 
-	newFileName := fmt.Sprintf("_%s", info.Name())
+	newFileName := fmt.Sprintf("_%s", strings.Replace(info.Name(), "_", "", -1))
 
 	// source and destionation name
 	src := path
@@ -53,7 +52,7 @@ func renameVideo(path string, info os.FileInfo, prefix string) (*models.Video, s
 	model.Reduced.FileName = info.Name()
 	model.Reduced.Path = path
 
-	return &model, dst, os.Rename(src, dst)
+	return &model, os.Rename(src, dst)
 }
 
 func processVideo(file, prefix string) error {
@@ -71,11 +70,10 @@ func processVideo(file, prefix string) error {
 }
 
 func main() {
-	files := []string{}
 	prefix := "_"
+	count := 0
 
 	videos := []models.Video{}
-	video := models.Video{}
 
 	filepath.Walk("./resources", func(path string, info os.FileInfo, err error) error {
 		// is a file mp4
@@ -85,14 +83,14 @@ func main() {
 				return err
 			}
 
-			_video, file, err := renameVideo(absPath, info, prefix)
+			_video, err := renameVideo(absPath, info, prefix)
 			if err != nil {
 				return err
 			}
 
-			video = *_video
+			videos = append(videos, *_video)
+			// video = *_video
 
-			files = append(files, file)
 		}
 		if err != nil {
 			fmt.Println("ERROR:", err)
@@ -100,7 +98,7 @@ func main() {
 		return nil
 	})
 
-	if len(files) == 0 {
+	if len(videos) == 0 {
 		fmt.Println("No files found")
 		os.Exit(1)
 	}
@@ -110,30 +108,31 @@ func main() {
 	fmt.Scanln()
 
 	var wg sync.WaitGroup
-	wg.Add(len(files))
+	wg.Add(len(videos))
 
-	semaphore := make(chan int, 2)
+	semaphore := make(chan int, 3)
 
-	for _, file := range files {
-		go func(file string) {
+	fmt.Println("starting...")
+
+	for videoIndex := range videos {
+		go func(videoIndex int) {
 			semaphore <- 1
-			if err := processVideo(file, prefix); err != nil {
-				fmt.Println(file, err)
+			if err := processVideo(videos[videoIndex].Original.Path, prefix); err != nil {
+				fmt.Println(videos[videoIndex].Original.Path, err)
 			}
 
-			bytes, err := fileSizeInBytes(video.Reduced.Path)
+			bytes, err := fileSizeInBytes(videos[videoIndex].Reduced.Path)
 			if err != nil {
-				fmt.Println(file, err)
+				fmt.Println(videos[videoIndex].Original.Path, err)
 			}
-			video.Reduced.Megabytes = (float64(bytes) / float64(1024)) / float64(1024)
-			video.ReducedMegabytes = video.Original.Megabytes - video.Reduced.Megabytes
-			fmt.Println("bytes", video.Reduced.Megabytes)
+			videos[videoIndex].Reduced.Megabytes = (float64(bytes) / float64(1024)) / float64(1024)
+			videos[videoIndex].ReducedMegabytes = videos[videoIndex].Original.Megabytes - videos[videoIndex].Reduced.Megabytes
 
 			wg.Done()
 			<-semaphore
-			videos = append(videos, video)
-
-		}(file)
+			count++
+			fmt.Println("step", count, "of", len(videos), "finished")
+		}(videoIndex)
 	}
 
 	wg.Wait()
