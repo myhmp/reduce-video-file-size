@@ -1,14 +1,16 @@
 package models
 
-// Reduced represents a video record.
-type Reduced struct {
-	FileName         string `json:"file_name"`
-	Path             string `json:"path"`
-	FileSize         string `json:"file_size"`
-	ReducedMegabytes int64  `json:"reduced_megabytes"`
-	Original         struct {
+// Video represents a video record.
+type Video struct {
+	ReducedBytes int64 `json:"reduced_bytes"`
+	Reduced      struct {
 		FileName string `json:"file_name"`
 		Path     string `json:"path"`
-		FileSize string `json:"file_size"`
+		Bytes    int64  `json:"bytes"`
+	}
+	Original struct {
+		FileName string `json:"file_name"`
+		Path     string `json:"path"`
+		Bytes    int64  `json:"bytes"`
 	}
 }

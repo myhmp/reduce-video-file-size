@@ -1,25 +1,59 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reduce-video-file-size/models"
 	"strings"
 	"sync"
 )
 
-func renameVideo(path string, info os.FileInfo, prefix string) (fileName string, err error) {
-	if info.IsDir() {
-		return "", errors.New("Is a directory")
+func fileSizeInBytes(path string) (int64, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return 0, err
 	}
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		return 0, err
+	}
+
+	fmt.Println("fileSizeInBytes", stat.Size())
+	fmt.Println("path", path)
+
+	var bytes int64
+	bytes = stat.Size()
+
+	return bytes, nil
+}
+
+func renameVideo(path string, info os.FileInfo, prefix string) (*models.Video, string, error) {
+	model := models.Video{}
+	if info.IsDir() {
+		return &model, "", errors.New("Is a directory")
+	}
+
+	newFileName := fmt.Sprintf("_%s", info.Name())
 
 	// source and destionation name
 	src := path
-	dst := strings.Replace(path, info.Name(), "_"+info.Name(), -1)
+	dst := strings.Replace(path, info.Name(), newFileName, -1)
 
-	return dst, os.Rename(src, dst)
+	model.Original.FileName = newFileName
+	model.Original.Path = dst
+	model.Original.Bytes = info.Size()
+
+	model.Reduced.FileName = info.Name()
+	model.Reduced.Path = path
+
+	return &model, dst, os.Rename(src, dst)
 }
 
 func processVideo(file, prefix string) error {
@@ -40,6 +74,9 @@ func main() {
 	files := []string{}
 	prefix := "_"
 
+	videos := []models.Video{}
+	video := models.Video{}
+
 	filepath.Walk("./resources", func(path string, info os.FileInfo, err error) error {
 		// is a file mp4
 		if !info.IsDir() && filepath.Ext(path) == ".mp4" {
@@ -48,12 +85,14 @@ func main() {
 				return err
 			}
 
-			newFileName, err := renameVideo(absPath, info, prefix)
+			_video, file, err := renameVideo(absPath, info, prefix)
 			if err != nil {
 				return err
 			}
 
-			files = append(files, newFileName)
+			video = *_video
+
+			files = append(files, file)
 		}
 		if err != nil {
 			fmt.Println("ERROR:", err)
@@ -82,12 +121,26 @@ func main() {
 				fmt.Println(file, err)
 			}
 
+			bytes, err := fileSizeInBytes(video.Reduced.Path)
+			if err != nil {
+				fmt.Println(file, err)
+			}
+			video.Reduced.Bytes = bytes
+			video.ReducedBytes = video.Original.Bytes - video.Reduced.Bytes
+			fmt.Println("bytes", video.Reduced.Bytes)
+
 			wg.Done()
 			<-semaphore
+			videos = append(videos, video)
+
 		}(file)
 	}
 
 	wg.Wait()
+
+	file, _ := json.MarshalIndent(videos, "", " ")
+
+	_ = ioutil.WriteFile("records.json", file, 0644)
 }
 
 // HandBrakeCLI -i Vi2.mp4 -o ~/Desktop/Vi22.mp4 -e x264 -q 21 --preset="Discord Nitro Small 10-20 Minutes 480p30"
