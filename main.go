@@ -91,7 +91,7 @@ func processVideo(file, prefix string) error {
 	src := file
 	dst := strings.Replace(file, prefix, "", -1)
 
-	cmd := exec.Command("HandBrakeCLI", "-i", src, "-o", dst, "-e", "x264", "-q", "21", "--preset", "Discord Nitro Small 10-20 Minutes 480p30")
+	cmd := exec.Command("HandBrakeCLI", "-i", src, "-o", dst, "-e", "x264", "-q", "21", "--preset", "Gmail Medium 5 Minutes 480p30")
 	std, err := cmd.Output()
 	if err != nil {
 		return err
