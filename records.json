@@ -1,0 +1,57 @@
+{
+ "reduced_megabytes": 14.12680721282959,
+ "items": [
+  {
+   "reduced_megabytes": 2.542877197265625,
+   "Reduced": {
+    "file_name": "Vi2.mp4",
+    "path": "/Volumes/BOOTCAMP/myhmp.org/reduce-video-file-size/resources/grammar1/01G01/vr/Vi2.mp4",
+    "megabytes": 4.577768325805664
+   },
+   "Original": {
+    "file_name": "_Vi2.mp4",
+    "path": "/Volumes/BOOTCAMP/myhmp.org/reduce-video-file-size/resources/grammar1/01G01/vr/_Vi2.mp4",
+    "megabytes": 7.120645523071289
+   }
+  },
+  {
+   "reduced_megabytes": 1.763209342956543,
+   "Reduced": {
+    "file_name": "Vi2.mp4",
+    "path": "/Volumes/BOOTCAMP/myhmp.org/reduce-video-file-size/resources/grammar1/02G01/vr/Vi2.mp4",
+    "megabytes": 6.08820915222168
+   },
+   "Original": {
+    "file_name": "_Vi2.mp4",
+    "path": "/Volumes/BOOTCAMP/myhmp.org/reduce-video-file-size/resources/grammar1/02G01/vr/_Vi2.mp4",
+    "megabytes": 7.851418495178223
+   }
+  },
+  {
+   "reduced_megabytes": 5.608615875244141,
+   "Reduced": {
+    "file_name": "Vi2.mp4",
+    "path": "/Volumes/BOOTCAMP/myhmp.org/reduce-video-file-size/resources/grammar1/03G01/vr/Vi2.mp4",
+    "megabytes": 8.507018089294434
+   },
+   "Original": {
+    "file_name": "_Vi2.mp4",
+    "path": "/Volumes/BOOTCAMP/myhmp.org/reduce-video-file-size/resources/grammar1/03G01/vr/_Vi2.mp4",
+    "megabytes": 14.115633964538574
+   }
+  },
+  {
+   "reduced_megabytes": 4.212104797363281,
+   "Reduced": {
+    "file_name": "Vi2.mp4",
+    "path": "/Volumes/BOOTCAMP/myhmp.org/reduce-video-file-size/resources/grammar1/04G01/vr/Vi2.mp4",
+    "megabytes": 5.883016586303711
+   },
+   "Original": {
+    "file_name": "_Vi2.mp4",
+    "path": "/Volumes/BOOTCAMP/myhmp.org/reduce-video-file-size/resources/grammar1/04G01/vr/_Vi2.mp4",
+    "megabytes": 10.095121383666992
+   }
+  }
+ ]
+}

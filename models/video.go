@@ -14,3 +14,9 @@ type Video struct {
 		Megabytes float64 `json:"megabytes"`
 	}
 }
+
+// Record represents a video record.
+type Record struct {
+	ReducedMegabytes float64 `json:"reduced_megabytes"`
+	Videos           []Video `json:"items"`
+}

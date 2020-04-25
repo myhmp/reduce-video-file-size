@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bufio"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,39 +28,73 @@ func fileSizeInBytes(path string) (int64, error) {
 		return 0, err
 	}
 
-	fmt.Println("path", path)
-
 	var bytes int64
 	bytes = stat.Size()
 
 	return bytes, nil
 }
 
-func renameVideo(path string, info os.FileInfo, prefix string) (*models.Video, error) {
-	model := models.Video{}
-	if info.IsDir() {
-		return &model, errors.New("Is a directory")
+func backupVideo(source string, info os.FileInfo, prefix string) error {
+
+	// Open file on disk.
+	f, err := os.Open(source)
+	if err != nil {
+		return err
 	}
 
-	newFileName := fmt.Sprintf("_%s", strings.Replace(info.Name(), "_", "", -1))
+	// Create a Reader and use ReadAll to get all the bytes from the file.
+	reader := bufio.NewReader(f)
+	content, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return err
+	}
 
-	// source and destionation name
-	src := path
-	dst := strings.Replace(path, info.Name(), newFileName, -1)
+	defer f.Close()
 
-	model.Original.FileName = newFileName
-	model.Original.Path = dst
-	model.Original.Megabytes = (float64(info.Size()) / float64(1024)) / float64(1024)
+	zipFileName := fmt.Sprintf("%s.zip", info.Name())
 
-	model.Reduced.FileName = info.Name()
-	model.Reduced.Path = path
+	zipFilePath := strings.Replace(source, info.Name(), zipFileName, -1)
 
-	return &model, os.Rename(src, dst)
+	// check if exists
+	_, err = os.Stat(zipFilePath)
+	if !os.IsNotExist(err) {
+		return errors.New("File exits")
+	}
+
+	// Open file for writing.
+	fileWriter, err := os.Create(zipFilePath)
+	if err != nil {
+		return err
+	}
+
+	defer fileWriter.Close()
+
+	// Write compressed data.
+	zw := gzip.NewWriter(fileWriter)
+
+	defer zw.Close()
+
+	_, err = zw.Write(content)
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(source, strings.Replace(source, info.Name(), prefix+info.Name(), -1))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func processVideo(file, prefix string) error {
 	src := file
 	dst := strings.Replace(file, prefix, "", -1)
+
+	fmt.Println("file", file)
+	fmt.Println("src", src)
+	fmt.Println("dst", dst)
+
 	cmd := exec.Command("HandBrakeCLI", "-i", src, "-o", dst, "-e", "x264", "-q", "21", "--preset", "Discord Nitro Small 10-20 Minutes 480p30")
 	std, err := cmd.Output()
 	if err != nil {
@@ -73,9 +110,17 @@ func main() {
 	prefix := "_"
 	count := 0
 
-	videos := []models.Video{}
+	record := models.Record{}
 
-	filepath.Walk("./resources", func(path string, info os.FileInfo, err error) error {
+	f, err := os.OpenFile("log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
+	}
+	defer f.Close()
+
+	log.SetOutput(f)
+
+	filepath.Walk(os.Args[1], func(path string, info os.FileInfo, err error) error {
 		// is a file mp4
 		if !info.IsDir() && filepath.Ext(path) == ".mp4" {
 			absPath, err := filepath.Abs(path)
@@ -83,13 +128,20 @@ func main() {
 				return err
 			}
 
-			_video, err := renameVideo(absPath, info, prefix)
+			err = backupVideo(absPath, info, prefix)
 			if err != nil {
 				return err
 			}
 
-			videos = append(videos, *_video)
-			// video = *_video
+			model := models.Video{}
+			model.Original.FileName = prefix + info.Name()
+			model.Original.Path = strings.Replace(absPath, info.Name(), prefix+info.Name(), -1)
+			model.Original.Megabytes = (float64(info.Size()) / float64(1024)) / float64(1024)
+
+			model.Reduced.FileName = info.Name()
+			model.Reduced.Path = absPath
+
+			record.Videos = append(record.Videos, model)
 
 		}
 		if err != nil {
@@ -98,46 +150,52 @@ func main() {
 		return nil
 	})
 
-	if len(videos) == 0 {
+	if len(record.Videos) == 0 {
 		fmt.Println("No files found")
 		os.Exit(1)
 	}
 
-	fmt.Println("The videos were renamed correctly, do you want to continue? the next process is to reduce the size of the video file.")
+	fmt.Println("The videos were compressed correctly, do you want to continue? the next process is to reduce the size of the video file.")
 	fmt.Println("Press 'Enter' to continue...")
 	fmt.Scanln()
 
 	var wg sync.WaitGroup
-	wg.Add(len(videos))
+	wg.Add(len(record.Videos))
 
-	semaphore := make(chan int, 3)
+	semaphore := make(chan int, 2)
 
 	fmt.Println("starting...")
 
-	for videoIndex := range videos {
+	for videoIndex := range record.Videos {
 		go func(videoIndex int) {
 			semaphore <- 1
-			if err := processVideo(videos[videoIndex].Original.Path, prefix); err != nil {
-				fmt.Println(videos[videoIndex].Original.Path, err)
+			if err := processVideo(record.Videos[videoIndex].Original.Path, prefix); err != nil {
+				fmt.Println("Process video path:", record.Videos[videoIndex].Original.Path, "error:", err)
+				log.Println("Process video path:", record.Videos[videoIndex].Original.Path, "error:", err)
 			}
 
-			bytes, err := fileSizeInBytes(videos[videoIndex].Reduced.Path)
+			bytes, err := fileSizeInBytes(record.Videos[videoIndex].Reduced.Path)
 			if err != nil {
-				fmt.Println(videos[videoIndex].Original.Path, err)
+				fmt.Println("fileSizeInBytes path:", record.Videos[videoIndex].Reduced.Path, "error:", err)
+				log.Println("fileSizeInBytes path:", record.Videos[videoIndex].Reduced.Path, "error:", err)
 			}
-			videos[videoIndex].Reduced.Megabytes = (float64(bytes) / float64(1024)) / float64(1024)
-			videos[videoIndex].ReducedMegabytes = videos[videoIndex].Original.Megabytes - videos[videoIndex].Reduced.Megabytes
+			record.Videos[videoIndex].Reduced.Megabytes = (float64(bytes) / float64(1024)) / float64(1024)
+			record.Videos[videoIndex].ReducedMegabytes = record.Videos[videoIndex].Original.Megabytes - record.Videos[videoIndex].Reduced.Megabytes
+
+			// total sum
+			record.ReducedMegabytes += record.Videos[videoIndex].ReducedMegabytes
 
 			wg.Done()
 			<-semaphore
 			count++
-			fmt.Println("step", count, "of", len(videos), "finished")
+			fmt.Println("step", count, "of", len(record.Videos), "finished")
+			log.Println("step", count, "of", len(record.Videos), "finished")
 		}(videoIndex)
 	}
 
 	wg.Wait()
 
-	file, _ := json.MarshalIndent(videos, "", " ")
+	file, _ := json.MarshalIndent(record, "", " ")
 
 	_ = ioutil.WriteFile("records.json", file, 0644)
 }
