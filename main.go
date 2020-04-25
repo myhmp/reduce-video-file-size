@@ -108,6 +108,7 @@ func main() {
 	var ws sync.WaitGroup
 	ws.Add(1)
 
+	fmt.Println()
 	fmt.Println("starting...")
 
 	record := models.Record{}
