@@ -87,19 +87,19 @@ func backupVideo(source string, info os.FileInfo, prefix string) error {
 	return nil
 }
 
-func processVideo(file, prefix string) (string, error) {
+func processVideo(file, prefix string) error {
 	src := file
 	dst := strings.Replace(file, prefix, "", -1)
 
 	cmd := exec.Command("HandBrakeCLI", "-i", src, "-o", dst, "-e", "x264", "-q", "21", "--preset", "Gmail Medium 5 Minutes 480p30")
 	std, err := cmd.Output()
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	fmt.Println(string(std))
 
-	return string(std), nil
+	return nil
 }
 
 func main() {
@@ -123,29 +123,52 @@ func main() {
 
 	go func() {
 		filepath.Walk(os.Args[1], func(path string, info os.FileInfo, err error) error {
+
 			// is a file mp4
 			if !info.IsDir() && filepath.Ext(path) == ".mp4" {
-				absPath, err := filepath.Abs(path)
-				if err != nil {
-					return err
+
+				// verifica si no existe un video comprimido, entonces continua.
+				proceed := func(path string, info os.FileInfo) bool {
+					path = strings.Replace(path, info.Name(), "", -1)
+
+					files, err := ioutil.ReadDir(path)
+					if err != nil {
+						log.Fatal(err)
+					}
+
+					for _, f := range files {
+						if strings.Contains(f.Name(), ".zip") {
+							fmt.Println(f.Name())
+							return false
+						}
+					}
+
+					return true
+				}(path, info)
+
+				if proceed {
+					absPath, err := filepath.Abs(path)
+					if err != nil {
+						return err
+					}
+
+					err = backupVideo(absPath, info, prefix)
+					if err != nil {
+						return err
+					}
+
+					model := models.Video{}
+					model.Original.FileName = prefix + info.Name()
+					model.Original.Path = strings.Replace(absPath, info.Name(), prefix+info.Name(), -1)
+					model.Original.Megabytes = (float64(info.Size()) / float64(1024)) / float64(1024)
+
+					model.Reduced.FileName = info.Name()
+					model.Reduced.Path = absPath
+
+					record.Videos = append(record.Videos, model)
 				}
-
-				err = backupVideo(absPath, info, prefix)
-				if err != nil {
-					return err
-				}
-
-				model := models.Video{}
-				model.Original.FileName = prefix + info.Name()
-				model.Original.Path = strings.Replace(absPath, info.Name(), prefix+info.Name(), -1)
-				model.Original.Megabytes = (float64(info.Size()) / float64(1024)) / float64(1024)
-
-				model.Reduced.FileName = info.Name()
-				model.Reduced.Path = absPath
-
-				record.Videos = append(record.Videos, model)
-
 			}
+
 			if err != nil {
 				fmt.Println("ERROR:", err)
 			}
@@ -172,13 +195,11 @@ func main() {
 	for videoIndex := range record.Videos {
 		go func(videoIndex int) {
 			semaphore <- 1
-			output, err := processVideo(record.Videos[videoIndex].Original.Path, prefix)
+			err := processVideo(record.Videos[videoIndex].Original.Path, prefix)
 			if err != nil {
 				fmt.Println("Process video path:", record.Videos[videoIndex].Original.Path, "error:", err)
 				log.Println("Process video path:", record.Videos[videoIndex].Original.Path, "error:", err)
 			}
-
-			log.Println("Output:", output)
 
 			bytes, err := fileSizeInBytes(record.Videos[videoIndex].Reduced.Path)
 			if err != nil {
@@ -196,6 +217,7 @@ func main() {
 			count++
 			fmt.Println("step", count, "of", len(record.Videos), "finished")
 			log.Println("step", count, "of", len(record.Videos), "finished")
+
 		}(videoIndex)
 	}
 
