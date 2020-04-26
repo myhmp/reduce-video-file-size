@@ -145,15 +145,12 @@ func main() {
 
 					for _, f := range files {
 						if strings.Contains(f.Name(), ".zip") {
-							fmt.Println(".zip")
 							filter1 = true
 						} else if strings.Contains(f.Name(), "_") {
-							fmt.Println("_")
 							filter2 = true
 						}
 					}
-
-					return !filter1 && !filter2
+					return (filter1 && filter2)
 				}(path, info)
 
 				if proceed {
@@ -162,18 +159,18 @@ func main() {
 						return err
 					}
 
-					err = backupVideo(absPath, info, prefix)
-					if err != nil {
-						return err
-					}
+					// err = backupVideo(absPath, info, prefix)
+					// if err != nil {
+					// 	return err
+					// }
 
 					model := models.Video{}
-					model.Original.FileName = prefix + info.Name()
-					model.Original.Path = strings.Replace(absPath, info.Name(), prefix+info.Name(), -1)
+					model.Original.FileName = info.Name()
+					model.Original.Path = absPath
 					model.Original.Megabytes = (float64(info.Size()) / float64(1024)) / float64(1024)
 
 					model.Reduced.FileName = info.Name()
-					model.Reduced.Path = absPath
+					model.Reduced.Path = strings.Replace(absPath, "_", "", -1)
 
 					record.Videos = append(record.Videos, model)
 				}
@@ -207,14 +204,14 @@ func main() {
 			semaphore <- 1
 			err := processVideo(record.Videos[videoIndex].Original.Path, prefix)
 			if err != nil {
-				fmt.Println("Process video path:", record.Videos[videoIndex].Original.Path, "error:", err)
-				log.Println("Process video path:", record.Videos[videoIndex].Original.Path, "error:", err)
+				fmt.Println("Process video error path:", record.Videos[videoIndex].Original.Path, "error:", err)
+				log.Println("Process video error path:", record.Videos[videoIndex].Original.Path, "error:", err)
 			}
 
 			bytes, err := fileSizeInBytes(record.Videos[videoIndex].Reduced.Path)
 			if err != nil {
-				fmt.Println("fileSizeInBytes path:", record.Videos[videoIndex].Reduced.Path, "error:", err)
-				log.Println("fileSizeInBytes path:", record.Videos[videoIndex].Reduced.Path, "error:", err)
+				fmt.Println("file size in bytes error path:", record.Videos[videoIndex].Reduced.Path, "error:", err)
+				log.Println("file size in bytes error path:", record.Videos[videoIndex].Reduced.Path, "error:", err)
 			}
 			record.Videos[videoIndex].Reduced.Megabytes = (float64(bytes) / float64(1024)) / float64(1024)
 			record.Videos[videoIndex].ReducedMegabytes = record.Videos[videoIndex].Original.Megabytes - record.Videos[videoIndex].Reduced.Megabytes
@@ -225,7 +222,7 @@ func main() {
 			wg.Done()
 			<-semaphore
 			count++
-			fmt.Println("step", count, "of", len(record.Videos), "finished")
+			fmt.Println("step", count, "of", len(record.Videos), "finished", "path roginal:", record.Videos[videoIndex].Original.Path)
 			log.Println("step", count, "of", len(record.Videos), "finished")
 
 		}(videoIndex)
