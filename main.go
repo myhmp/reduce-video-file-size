@@ -136,14 +136,24 @@ func main() {
 						log.Fatal(err)
 					}
 
+					// zip
+					filter1 := false
+					// video original con prefijo _
+					filter2 := false
+					// video con peso reducido
+					// filter3 := false
+
 					for _, f := range files {
 						if strings.Contains(f.Name(), ".zip") {
-							fmt.Println(f.Name())
-							return false
+							fmt.Println(".zip")
+							filter1 = true
+						} else if strings.Contains(f.Name(), "_") {
+							fmt.Println("_")
+							filter2 = true
 						}
 					}
 
-					return true
+					return !filter1 && !filter2
 				}(path, info)
 
 				if proceed {
