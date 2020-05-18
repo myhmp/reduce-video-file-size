@@ -128,52 +128,51 @@ func main() {
 			if !info.IsDir() && filepath.Ext(path) == ".mp4" {
 
 				// verifica si no existe un video comprimido, entonces continua.
-				proceed := func(path string, info os.FileInfo) bool {
-					path = strings.Replace(path, info.Name(), "", -1)
+				// proceed := func(path string, info os.FileInfo) bool {
+				// 	path = strings.Replace(path, info.Name(), "", -1)
 
-					files, err := ioutil.ReadDir(path)
-					if err != nil {
-						log.Fatal(err)
-					}
+				// 	files, err := ioutil.ReadDir(path)
+				// 	if err != nil {
+				// 		log.Fatal(err)
+				// 	}
 
-					// zip
-					filter1 := false
-					// video original con prefijo _
-					filter2 := false
-					// video con peso reducido
-					// filter3 := false
+				// 	// zip
+				// 	filter1 := false
+				// 	// video original con prefijo _
+				// 	filter2 := false
+				// 	// video con peso reducido
+				// 	// filter3 := false
 
-					for _, f := range files {
-						if strings.Contains(f.Name(), ".zip") {
-							filter1 = true
-						} else if strings.Contains(f.Name(), "_") {
-							filter2 = true
-						}
-					}
-					return (filter1 && filter2)
-				}(path, info)
+				// 	for _, f := range files {
+				// 		if strings.Contains(f.Name(), ".zip") {
+				// 			filter1 = true
+				// 		} else if strings.Contains(f.Name(), "_") {
+				// 			filter2 = true
+				// 		}
+				// 	}
+				// 	return (filter1 && filter2)
+				// }(path, info)
 
-				if proceed {
-					absPath, err := filepath.Abs(path)
-					if err != nil {
-						return err
-					}
-
-					// err = backupVideo(absPath, info, prefix)
-					// if err != nil {
-					// 	return err
-					// }
-
-					model := models.Video{}
-					model.Original.FileName = info.Name()
-					model.Original.Path = absPath
-					model.Original.Megabytes = (float64(info.Size()) / float64(1024)) / float64(1024)
-
-					model.Reduced.FileName = info.Name()
-					model.Reduced.Path = strings.Replace(absPath, "_", "", -1)
-
-					record.Videos = append(record.Videos, model)
+				absPath, err := filepath.Abs(path)
+				if err != nil {
+					return err
 				}
+
+				// err = backupVideo(absPath, info, prefix)
+				// if err != nil {
+				// 	return err
+				// }
+
+				model := models.Video{}
+				model.Original.FileName = info.Name()
+				model.Original.Path = absPath
+				model.Original.Megabytes = (float64(info.Size()) / float64(1024)) / float64(1024)
+
+				model.Reduced.FileName = info.Name()
+				model.Reduced.Path = strings.Replace(absPath, "_", "", -1)
+
+				record.Videos = append(record.Videos, model)
+
 			}
 
 			if err != nil {
@@ -229,6 +228,31 @@ func main() {
 	}
 
 	wg.Wait()
+
+	var wgDelete sync.WaitGroup
+	wgDelete.Add(len(record.Videos))
+
+	for videoIndex := range record.Videos {
+		go func(videoIndex int) {
+			semaphore <- 1
+
+			// delete file
+			err := os.Remove(record.Videos[videoIndex].Original.Path)
+			if err != nil {
+				fmt.Println(err)
+				log.Println("Process remove video path:", record.Videos[videoIndex].Original.Path, "error:", err)
+			}
+
+			wgDelete.Done()
+			<-semaphore
+			count++
+			fmt.Println("step", count, "of", len(record.Videos), "finished", "path roginal:", record.Videos[videoIndex].Original.Path)
+			log.Println("step", count, "of", len(record.Videos), "finished")
+
+		}(videoIndex)
+	}
+
+	wgDelete.Wait()
 
 	file, _ := json.MarshalIndent(record, "", " ")
 
