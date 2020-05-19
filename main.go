@@ -91,6 +91,7 @@ func processVideo(file, prefix string) error {
 	cmd := exec.Command("HandBrakeCLI", "-i", src, "-o", dst, "-e", "x264", "-q", "21", "--preset", "Gmail Medium 5 Minutes 480p30")
 	std, err := cmd.Output()
 	if err != nil {
+		fmt.Println("HandBrakeCLI:", err)
 		return err
 	}
 
@@ -226,27 +227,27 @@ func main() {
 
 	wg.Wait()
 
-	var wgDelete sync.WaitGroup
-	wgDelete.Add(len(record.Videos))
+	// var wgDelete sync.WaitGroup
+	// wgDelete.Add(len(record.Videos))
 
-	for videoIndex := range record.Videos {
-		// delete file
-		go func(videoIndex int) {
-			semaphore <- 1
-			err := os.Remove(record.Videos[videoIndex].Original.Path)
-			if err != nil {
-				fmt.Println(err)
-				log.Println("Process remove video path:", record.Videos[videoIndex].Original.Path, "error:", err)
-			}
+	// for videoIndex := range record.Videos {
+	// 	// delete file
+	// 	go func(videoIndex int) {
+	// 		semaphore <- 1
+	// 		err := os.Remove(record.Videos[videoIndex].Original.Path)
+	// 		if err != nil {
+	// 			fmt.Println(err)
+	// 			log.Println("Process remove video path:", record.Videos[videoIndex].Original.Path, "error:", err)
+	// 		}
 
-			wgDelete.Done()
-			<-semaphore
-		}(videoIndex)
+	// 		wgDelete.Done()
+	// 		<-semaphore
+	// 	}(videoIndex)
 
-		fmt.Println("File deleted:", record.Videos[videoIndex].Original.Path)
-	}
+	// 	fmt.Println("File deleted:", record.Videos[videoIndex].Original.Path)
+	// }
 
-	wgDelete.Wait()
+	// wgDelete.Wait()
 
 	file, _ := json.MarshalIndent(record, "", " ")
 
