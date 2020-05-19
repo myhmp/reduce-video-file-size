@@ -1,10 +1,7 @@
 package main
 
 import (
-	"bufio"
-	"compress/gzip"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -37,49 +34,49 @@ func fileSizeInBytes(path string) (int64, error) {
 func backupVideo(source string, info os.FileInfo, prefix string) error {
 
 	// Open file on disk.
-	f, err := os.Open(source)
-	if err != nil {
-		return err
-	}
+	// f, err := os.Open(source)
+	// if err != nil {
+	// 	return err
+	// }
 
 	// Create a Reader and use ReadAll to get all the bytes from the file.
-	reader := bufio.NewReader(f)
-	content, err := ioutil.ReadAll(reader)
-	if err != nil {
-		return err
-	}
+	// reader := bufio.NewReader(f)
+	// content, err := ioutil.ReadAll(reader)
+	// if err != nil {
+	// 	return err
+	// }
 
-	defer f.Close()
+	// defer f.Close()
 
-	zipFileName := fmt.Sprintf("%s.zip", info.Name())
+	// zipFileName := fmt.Sprintf("%s.zip", info.Name())
 
-	zipFilePath := strings.Replace(source, info.Name(), zipFileName, -1)
+	// zipFilePath := strings.Replace(source, info.Name(), zipFileName, -1)
 
 	// check if exists
-	_, err = os.Stat(zipFilePath)
-	if !os.IsNotExist(err) {
-		return errors.New("File exits")
-	}
+	// _, err = os.Stat(zipFilePath)
+	// if !os.IsNotExist(err) {
+	// 	return errors.New("File exits")
+	// }
 
 	// Open file for writing.
-	fileWriter, err := os.Create(zipFilePath)
-	if err != nil {
-		return err
-	}
+	// fileWriter, err := os.Create(zipFilePath)
+	// if err != nil {
+	// 	return err
+	// }
 
-	defer fileWriter.Close()
+	// defer fileWriter.Close()
 
 	// Write compressed data.
-	zw := gzip.NewWriter(fileWriter)
+	// zw := gzip.NewWriter(fileWriter)
 
-	defer zw.Close()
+	// defer zw.Close()
 
-	_, err = zw.Write(content)
-	if err != nil {
-		return err
-	}
+	// _, err = zw.Write(content)
+	// if err != nil {
+	// 	return err
+	// }
 
-	err = os.Rename(source, strings.Replace(source, info.Name(), prefix+info.Name(), -1))
+	err := os.Rename(source, strings.Replace(source, info.Name(), prefix+info.Name(), -1))
 	if err != nil {
 		return err
 	}
@@ -158,18 +155,18 @@ func main() {
 					return err
 				}
 
-				// err = backupVideo(absPath, info, prefix)
-				// if err != nil {
-				// 	return err
-				// }
+				err = backupVideo(absPath, info, prefix)
+				if err != nil {
+					return err
+				}
 
 				model := models.Video{}
 				model.Original.FileName = info.Name()
-				model.Original.Path = absPath
+				model.Original.Path = strings.Replace(absPath, info.Name(), prefix+info.Name(), -1)
 				model.Original.Megabytes = (float64(info.Size()) / float64(1024)) / float64(1024)
 
 				model.Reduced.FileName = info.Name()
-				model.Reduced.Path = strings.Replace(absPath, "_", "", -1)
+				model.Reduced.Path = absPath
 
 				record.Videos = append(record.Videos, model)
 
@@ -233,10 +230,9 @@ func main() {
 	wgDelete.Add(len(record.Videos))
 
 	for videoIndex := range record.Videos {
+		// delete file
 		go func(videoIndex int) {
 			semaphore <- 1
-
-			// delete file
 			err := os.Remove(record.Videos[videoIndex].Original.Path)
 			if err != nil {
 				fmt.Println(err)
@@ -245,11 +241,9 @@ func main() {
 
 			wgDelete.Done()
 			<-semaphore
-			count++
-			fmt.Println("step", count, "of", len(record.Videos), "finished", "path roginal:", record.Videos[videoIndex].Original.Path)
-			log.Println("step", count, "of", len(record.Videos), "finished")
-
 		}(videoIndex)
+
+		fmt.Println("File deleted:", record.Videos[videoIndex].Original.Path)
 	}
 
 	wgDelete.Wait()
